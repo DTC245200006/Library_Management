@@ -15,7 +15,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
       "fieldConfig": {
         "defaults": { "unit": "percentunit", "custom": { "fillOpacity": 20 } }
       },
@@ -25,13 +25,13 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{name=~\".+\"}[1m]))",
-          "legendFormat": "{{name}}"
+          "expr": "rate(container_cpu_usage_seconds_total{job=\"cadvisor\"}[1m])",
+          "legendFormat": "{{id}}"
         }
       ]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
       "fieldConfig": {
         "defaults": { "unit": "bytes", "custom": { "fillOpacity": 20 } }
       },
@@ -41,8 +41,8 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum by (name) (container_memory_working_set_bytes{name=~\".+\"})",
-          "legendFormat": "{{name}}"
+          "expr": "container_memory_working_set_bytes{job=\"cadvisor\"}",
+          "legendFormat": "{{id}}"
         }
       ]
     },
@@ -54,7 +54,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
       "fieldConfig": {
         "defaults": { "unit": "reqps" }
       },
@@ -64,13 +64,13 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum by (route, status_code) (rate(library_http_requests_total[1m]))",
+          "expr": "rate(library_http_requests_total[1m])",
           "legendFormat": "{{route}} [{{status_code}}]"
         }
       ]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
       "fieldConfig": {
         "defaults": { "unit": "short" }
       },
@@ -97,7 +97,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
       "fieldConfig": {
         "defaults": { "unit": "short" }
       },
@@ -113,7 +113,7 @@
       ]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
       "fieldConfig": {
         "defaults": { "unit": "short" }
       },
@@ -138,5 +138,5 @@
   "timezone": "browser",
   "title": "Library System | Monitoring Dashboard",
   "uid": "library-sys-01",
-  "version": 1
+  "version": 2
 }

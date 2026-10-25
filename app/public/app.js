@@ -348,4 +348,12 @@ async function deleteReader(id) {
 // Initial load
 document.addEventListener('DOMContentLoaded', () => {
     loadAllData();
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    if (tabParam) {
+        setTimeout(() => switchTab(tabParam), 300);
+    } else if (window.location.hash) {
+        const tab = window.location.hash.replace('#', '');
+        setTimeout(() => switchTab(tab), 300);
+    }
 });

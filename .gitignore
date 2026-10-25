@@ -25,3 +25,5 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+generate_docx.py
+generate_detailed_docx.py

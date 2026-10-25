@@ -16,6 +16,8 @@ services:
       - DB_NAME=library_db
       - DB_USER=library_user
       - DB_PASSWORD=${DB_PASSWORD:-StrongLibPass2026!}
+    volumes:
+      - ./app/public:/usr/src/app/public:ro
     networks:
       - frontend_net
       - database_net
@@ -23,6 +25,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   proxy:
     image: nginx:1.25-alpine
@@ -76,6 +83,7 @@ services:
       - "${PGADMIN_PORT:-5050}:80"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
     networks:
       - database_net
       - frontend_net
@@ -150,6 +158,8 @@ services:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-GrafanaAdmin2026!}
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
     volumes:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana_data:/var/lib/grafana
@@ -166,6 +176,7 @@ services:
     image: grafana/loki:3.0.0
     container_name: library_loki
     restart: unless-stopped
+    user: "0:0"
     command: -config.file=/etc/loki/local-config.yaml
     volumes:
       - ./logging/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
