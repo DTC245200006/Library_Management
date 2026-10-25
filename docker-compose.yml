@@ -1,0 +1,206 @@
+services:
+  # ========================================================
+  # 1. APPLICATION & REVERSE PROXY
+  # ========================================================
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: library_app
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=library_db
+      - DB_USER=library_user
+      - DB_PASSWORD=${DB_PASSWORD:-StrongLibPass2026!}
+    networks:
+      - frontend_net
+      - database_net
+      - monitoring_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  proxy:
+    image: nginx:1.25-alpine
+    container_name: library_proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    networks:
+      - frontend_net
+      - monitoring_net
+    depends_on:
+      - app
+
+  # ========================================================
+  # 2. DATABASE & ADMINISTRATION
+  # ========================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: library_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: library_db
+      POSTGRES_USER: library_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-StrongLibPass2026!}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./app/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - database_net
+    # Hardening: KHÔNG publish port 5432 ra bên ngoài host
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U library_user -d library_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:8.5
+    container_name: library_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@library.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-AdminPg2026!Secret}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - database_net
+      - frontend_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ========================================================
+  # 3. MONITORING EXPORTERS
+  # ========================================================
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: library_postgres_exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: "postgresql://library_user:${DB_PASSWORD:-StrongLibPass2026!}@postgres:5432/library_db?sslmode=disable"
+    networks:
+      - database_net
+      - monitoring_net
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.1.0
+    container_name: library_nginx_exporter
+    restart: unless-stopped
+    command:
+      - -nginx.scrape-uri=http://proxy:8088/stub_status
+    networks:
+      - monitoring_net
+    depends_on:
+      - proxy
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: library_cadvisor
+    restart: unless-stopped
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks:
+      - monitoring_net
+    devices:
+      - /dev/kmsg
+
+  # ========================================================
+  # 4. MONITORING (PROMETHEUS & GRAFANA)
+  # ========================================================
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: library_prometheus
+    restart: unless-stopped
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom_data:/prometheus
+    networks:
+      - monitoring_net
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: library_grafana
+    restart: unless-stopped
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-GrafanaAdmin2026!}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    networks:
+      - monitoring_net
+      - frontend_net
+    depends_on:
+      - prometheus
+
+  # ========================================================
+  # 5. LOGGING (LOKI & PROMTAIL)
+  # ========================================================
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: library_loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./logging/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/tmp/loki
+    networks:
+      - monitoring_net
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: library_promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./logging/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - ./logs/nginx:/var/log/nginx:ro
+    networks:
+      - monitoring_net
+    depends_on:
+      - loki
+
+# ========================================================
+# NETWORKS & VOLUMES
+# ========================================================
+networks:
+  frontend_net:
+    driver: bridge
+  database_net:
+    driver: bridge
+    internal: true # Hardening: Mạng nội bộ cách ly an toàn cho Database
+  monitoring_net:
+    driver: bridge
+
+volumes:
+  pgdata:
+  pgadmin_data:
+  prom_data:
+  grafana_data:
+  loki_data:

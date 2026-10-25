@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Quản Lý Thư Viện Số</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">📚</div>
+                <div class="brand-text">
+                    <h2>LibSys K23</h2>
+                    <span>Quản Trị Thư Viện</span>
+                </div>
+            </div>
+            
+            <nav class="nav-menu">
+                <button class="nav-item active" onclick="switchTab('dashboard')">
+                    <span class="icon">📊</span>
+                    <span>Tổng quan</span>
+                </button>
+                <button class="nav-item" onclick="switchTab('books')">
+                    <span class="icon">📖</span>
+                    <span>Quản lý Sách</span>
+                </button>
+                <button class="nav-item" onclick="switchTab('readers')">
+                    <span class="icon">👥</span>
+                    <span>Độc giả</span>
+                </button>
+                <button class="nav-item" onclick="switchTab('borrows')">
+                    <span class="icon">🔄</span>
+                    <span>Mượn / Trả Sách</span>
+                </button>
+                <button class="nav-item" onclick="switchTab('system')">
+                    <span class="icon">⚙️</span>
+                    <span>Hệ thống & Giám sát</span>
+                </button>
+            </nav>
+
+            <div class="system-status-box">
+                <div class="status-indicator online"></div>
+                <div class="status-info">
+                    <p class="status-title">Hệ thống: Trực tuyến</p>
+                    <p class="status-sub">PostgreSQL + Nginx</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="top-header">
+                <div>
+                    <h1 id="page-title">Tổng quan Hệ thống Thư viện</h1>
+                    <p class="sub-heading">Kỳ thi KTHP: Triển khai và Quản trị Hệ thống Phần mềm</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-outline" onclick="loadAllData()">🔄 Làm mới</button>
+                    <a href="/metrics" target="_blank" class="btn btn-primary">📈 Metrics Prometheus</a>
+                </div>
+            </header>
+
+            <!-- TAB 1: DASHBOARD -->
+            <section id="tab-dashboard" class="tab-pane active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon purple">📚</div>
+                        <div class="stat-details">
+                            <span class="stat-label">Tổng đầu sách</span>
+                            <h3 id="stat-books">0</h3>
+                            <span class="stat-tag success">Đang lưu kho</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon blue">👥</div>
+                        <div class="stat-details">
+                            <span class="stat-label">Độc giả đăng ký</span>
+                            <h3 id="stat-readers">0</h3>
+                            <span class="stat-tag info">Thẻ hoạt động</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green">🔄</div>
+                        <div class="stat-details">
+                            <span class="stat-label">Sách đang mượn</span>
+                            <h3 id="stat-borrows">0</h3>
+                            <span class="stat-tag warning">Lưu thông</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon red">⚠️</div>
+                        <div class="stat-details">
+                            <span class="stat-label">Phiếu quá hạn</span>
+                            <h3 id="stat-overdue">0</h3>
+                            <span class="stat-tag danger">Cần xử lý</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Borrows Preview -->
+                <div class="content-card">
+                    <div class="card-header">
+                        <h2>Hoạt động Mượn / Trả Gần đây</h2>
+                        <button class="btn btn-sm btn-outline" onclick="switchTab('borrows')">Xem tất cả</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Mã Phiếu</th>
+                                    <th>Tên Sách</th>
+                                    <th>Độc Giả</th>
+                                    <th>Ngày Mượn</th>
+                                    <th>Hạn Trả</th>
+                                    <th>Trạng Thái</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-borrows-body">
+                                <tr><td colspan="6" class="text-center">Đang tải dữ liệu...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: BOOKS -->
+            <section id="tab-books" class="tab-pane">
+                <div class="content-card">
+                    <div class="card-header flex-between">
+                        <div class="search-box">
+                            <input type="text" id="book-search" placeholder="Tìm theo tên sách, tác giả hoặc ISBN..." onkeyup="handleBookSearch()">
+                        </div>
+                        <button class="btn btn-primary" onclick="openAddBookModal()">+ Thêm Sách Mới</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>ISBN</th>
+                                    <th>Tựa Sách</th>
+                                    <th>Tác Giả</th>
+                                    <th>Thể Loại</th>
+                                    <th>Năm XB</th>
+                                    <th>Có sẵn / Tổng</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="books-table-body">
+                                <tr><td colspan="8" class="text-center">Đang tải danh sách sách...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: READERS -->
+            <section id="tab-readers" class="tab-pane">
+                <div class="content-card">
+                    <div class="card-header flex-between">
+                        <h2>Danh sách Độc giả Thư viện</h2>
+                        <button class="btn btn-primary" onclick="openAddReaderModal()">+ Thêm Độc Giả</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Mã Thẻ</th>
+                                    <th>Họ và Tên</th>
+                                    <th>Email</th>
+                                    <th>Số Điện Thoại</th>
+                                    <th>Địa Chỉ</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="readers-table-body">
+                                <tr><td colspan="7" class="text-center">Đang tải độc giả...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: BORROWS -->
+            <section id="tab-borrows" class="tab-pane">
+                <div class="content-card">
+                    <div class="card-header flex-between">
+                        <h2>Quản lý Phiếu Mượn & Trả Sách</h2>
+                        <button class="btn btn-primary" onclick="openBorrowModal()">+ Lập Phiếu Mượn</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Tên Sách</th>
+                                    <th>Độc Giả</th>
+                                    <th>Ngày Mượn</th>
+                                    <th>Hạn Trả</th>
+                                    <th>Ngày Trả</th>
+                                    <th>Trạng Thái</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="all-borrows-table-body">
+                                <tr><td colspan="8" class="text-center">Đang tải phiếu mượn...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 5: SYSTEM & MONITORING -->
+            <section id="tab-system" class="tab-pane">
+                <div class="content-card">
+                    <div class="card-header">
+                        <h2>Liên Kết Quản Trị & Giám Sát</h2>
+                    </div>
+                    <div class="grid-links">
+                        <div class="link-card">
+                            <h3>🔍 Prometheus Metrics</h3>
+                            <p>Theo dõi metrics thời gian thực từ ứng dụng, máy chủ và cơ sở dữ liệu.</p>
+                            <a href="http://localhost:9090" target="_blank" class="btn btn-outline btn-sm">Mở Prometheus (Cổng 9090)</a>
+                        </div>
+                        <div class="link-card">
+                            <h3>📊 Grafana Dashboard</h3>
+                            <p>Bảng điều khiển trực quan hóa tài nguyên CPU, RAM, lưu lượng HTTP và DB.</p>
+                            <a href="http://localhost:3001" target="_blank" class="btn btn-outline btn-sm">Mở Grafana (Cổng 3001)</a>
+                        </div>
+                        <div class="link-card">
+                            <h3>🗄️ pgAdmin 4</h3>
+                            <p>Quản trị trực quan Cơ sở dữ liệu PostgreSQL cho hệ thống thư viện.</p>
+                            <a href="http://localhost:5050" target="_blank" class="btn btn-outline btn-sm">Mở pgAdmin (Cổng 5050)</a>
+                        </div>
+                        <div class="link-card">
+                            <h3>📜 Loki & Promtail</h3>
+                            <p>Hệ thống log tập trung, truy vấn nhật ký truy cập và lỗi bằng LogQL.</p>
+                            <a href="http://localhost:3001/explore" target="_blank" class="btn btn-outline btn-sm">Truy vấn LogQL trong Grafana</a>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL: ADD BOOK -->
+    <div id="modal-add-book" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Thêm Đầu Sách Mới</h3>
+                <span class="close-btn" onclick="closeModal('modal-add-book')">&times;</span>
+            </div>
+            <form id="form-add-book" onsubmit="submitAddBook(event)">
+                <div class="form-group">
+                    <label>Mã ISBN *</label>
+                    <input type="text" id="book-isbn" required placeholder="VD: 978-604-0-99999-1">
+                </div>
+                <div class="form-group">
+                    <label>Tựa Sách *</label>
+                    <input type="text" id="book-title" required placeholder="VD: Thiết Kế Hệ Thống Đám Mây">
+                </div>
+                <div class="form-group">
+                    <label>Tác Giả *</label>
+                    <input type="text" id="book-author" required placeholder="VD: Nguyễn Văn A">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Thể Loại</label>
+                        <input type="text" id="book-category" placeholder="CNTT, Kinh Tế...">
+                    </div>
+                    <div class="form-group">
+                        <label>Số Lượng Sách</label>
+                        <input type="number" id="book-copies" value="5" min="1">
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('modal-add-book')">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Lưu Sách</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD READER -->
+    <div id="modal-add-reader" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Thêm Độc Giả Mới</h3>
+                <span class="close-btn" onclick="closeModal('modal-add-reader')">&times;</span>
+            </div>
+            <form id="form-add-reader" onsubmit="submitAddReader(event)">
+                <div class="form-group">
+                    <label>Mã Thẻ Thư Viện *</label>
+                    <input type="text" id="reader-card" required placeholder="VD: DG005">
+                </div>
+                <div class="form-group">
+                    <label>Họ và Tên *</label>
+                    <input type="text" id="reader-name" required placeholder="VD: Trần Văn B">
+                </div>
+                <div class="form-group">
+                    <label>Email *</label>
+                    <input type="email" id="reader-email" required placeholder="name@example.com">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Số Điện Thoại</label>
+                        <input type="text" id="reader-phone" placeholder="0901234567">
+                    </div>
+                    <div class="form-group">
+                        <label>Địa Chỉ</label>
+                        <input type="text" id="reader-address" placeholder="Thái Nguyên">
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('modal-add-reader')">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Lưu Độc Giả</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: BORROW BOOK -->
+    <div id="modal-borrow" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Lập Phiếu Mượn Sách</h3>
+                <span class="close-btn" onclick="closeModal('modal-borrow')">&times;</span>
+            </div>
+            <form id="form-borrow" onsubmit="submitBorrow(event)">
+                <div class="form-group">
+                    <label>Chọn Sách *</label>
+                    <select id="borrow-book-select" required>
+                        <option value="">-- Chọn sách có sẵn --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Chọn Độc Giả *</label>
+                    <select id="borrow-reader-select" required>
+                        <option value="">-- Chọn độc giả mượn --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Hạn Trả Sách *</label>
+                    <input type="date" id="borrow-due-date" required>
+                </div>
+                <div class="form-group">
+                    <label>Ghi Chú</label>
+                    <input type="text" id="borrow-notes" placeholder="Mục đích học tập, tài liệu NCKH...">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('modal-borrow')">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Xác Nhận Mượn Sách</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
